@@ -21,10 +21,10 @@ class Player:
         # TODO: 1. Capture Keyboard Input
         keys = pygame.key.get_pressed()
         
-        vel_x, vel_y = 0, 0 # velocity in X, Y direction
+        vel_x, vel_y = 0, 0
 
         # TODO: 2. Adjust player position with keys pressed, updating the player position to vel_x and vel_y
-        if key[pygame.K_LEFT]:      #Clamp player position to screen bounds
+        if keys[pygame.K_LEFT]:
             # Move character left
             vel_x -= self.speed
         if keys[pygame.K_RIGHT]:
@@ -34,10 +34,10 @@ class Player:
         if keys[pygame.K_DOWN]:
             vel_y += self.speed
         
-        self.x += vel_y
+        self.x += vel_x
         self.y += vel_y
         
-        #player position bound to scr4een 
+        #clamp player position to screen bounds
         self.x = max(0, min(self.x, app.WIDTH))
         self.y = max(0, min(self.y, app.HEIGHT))
         self.rect.center = (self.x, self.y)
@@ -53,7 +53,6 @@ class Player:
             self.facing_left = True
         elif vel_x > 0:
             self.facing_left = False
-        pass
 
     def update(self):
         self.animation_timer += 1
@@ -65,15 +64,14 @@ class Player:
             center = self.rect.center
             self.rect = self.image.get_rect()
             self.rect.center = center
-        pass
 
     def draw(self, surface):
         if self.facing_left:
-        flipped_img = pygame.transform.flip(self.image, True, False)
-        surface.blit(flipped_img, self.rect)
+            flipped_img = pygame.transform.flip(self.image, True, False)
+            surface.blit(flipped_img, self.rect)
         else:
-        surface.blit(self.image, self.rect)
-        pass
+            surface.blit(self.image, self.rect)
+
 
     def take_damage(self, amount):
         """Reduce the player's health by a given amount, not going below zero."""
