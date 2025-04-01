@@ -29,6 +29,8 @@ class Player:
         self.shoot_cooldown = 20
         self.shoot_timer = 0
         self.bullets = []
+
+        self.level = 1
     
     def handle_input(self):
         # TODO: 1. Capture Keyboard Input

@@ -38,6 +38,9 @@ class Game:
 
         self.reset_game()
 
+        self.in_level_up_menu = False
+        self.upgrade_options = []
+
     def reset_game(self):
         self.player = Player(app.WIDTH // 2, app.HEIGHT // 2, self.assets)
         self.enemies = []
@@ -64,32 +67,45 @@ class Game:
             self.clock.tick(app.FPS)
             self.handle_events()
 
-            if not self.game_over:
+            if self.in_level_up_menu:
+                self.draw_upgrade_menu()  # Show the menu when leveling up
+            elif not self.game_over:
                 self.update()
-
-            self.draw()
+            
+            self.draw()  # Always draw, but this now includes the menu
 
         pygame.quit()
+
 
 
     def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
-            elif event.type == pygame.KEYDOWN:
-                if self.game_over:
-                    if event.key == pygame.K_r:
-                        self.reset_game()
-                    elif event.key == pygame.K_ESCAPE:
-                        self.running = False
-                else:
-                    if event.key == pygame.K_SPACE:
-                        nearest_enemy = self.find_nearest_enemy()
-                        if nearest_enemy:
-                            self.player.shoot_toward_enemy(nearest_enemy)
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1:  # Left mouse button
-                    self.player.shoot_toward_mouse(event.pos)
+            elif self.in_level_up_menu:  # Only handle upgrade choices
+                if event.type == pygame.KEYDOWN:
+                    if event.key in [pygame.K_1, pygame.K_2, pygame.K_3]:
+                        index = event.key - pygame.K_1  # Convert key to index (0,1,2)
+                        if 0 <= index < len(self.upgrade_options):
+                            upgrade = self.upgrade_options[index]
+                            self.apply_upgrade(self.player, upgrade)
+                            self.in_level_up_menu = False  # Exit menu after choosing
+            else:  # Normal gameplay inputs
+                if event.type == pygame.KEYDOWN:
+                    if self.game_over:
+                        if event.key == pygame.K_r:
+                            self.reset_game()
+                        elif event.key == pygame.K_ESCAPE:
+                            self.running = False
+                    else:
+                        if event.key == pygame.K_SPACE:
+                            nearest_enemy = self.find_nearest_enemy()
+                            if nearest_enemy:
+                                self.player.shoot_toward_enemy(nearest_enemy)
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        self.player.shoot_toward_mouse(event.pos)
+
 
 
     def update(self):
@@ -107,6 +123,7 @@ class Game:
             self.game_over = True
             return
         self.spawn_enemies()
+        self.check_for_level_up()
 
     def draw(self):
         self.screen.blit(self.background, (0, 0))
@@ -127,8 +144,16 @@ class Game:
         xp_text_surf = self.font_small.render(f"XP: {self.player.xp}", True, (255, 255, 255))
         self.screen.blit(xp_text_surf, (10, 70))
 
+        next_level_xp = self.player.level * self.player.level * 5
+        xp_to_next = max(0, next_level_xp - self.player.xp)
+        xp_next_surf = self.font_small.render(f"Next Lvl XP: {xp_to_next}", True, (255, 255, 255))
+        self.screen.blit(xp_next_surf, (10, 100))
+
         if self.game_over:
             self.draw_game_over_screen()
+
+        if self.in_level_up_menu:
+            self.draw_upgrade_menu()  # Make sure it gets drawn
 
         pygame.display.flip()
 
@@ -217,3 +242,54 @@ class Game:
         for c in coins_collected:
             if c in self.coins:
                 self.coins.remove(c)
+
+    def pick_random_upgrades(self, num):
+        possible_upgrades = [
+            {"name": "Bigger Bullet",  "desc": "Bullet size +5"},
+            {"name": "Faster Bullet",  "desc": "Bullet speed +2"},
+            {"name": "Extra Bullet",   "desc": "Fire additional bullet"},
+            {"name": "Shorter Cooldown", "desc": "Shoot more frequently"},
+        ]
+        return random.sample(possible_upgrades, k=num)
+    
+    def apply_upgrade(self, player, upgrade):
+        name = upgrade["name"]
+        if name == "Bigger Bullet":
+            player.bullet_size += 5
+        elif name == "Faster Bullet":
+            player.bullet_speed += 2
+        elif name == "Extra Bullet":
+            player.bullet_count += 1
+        elif name == "Shorter Cooldown":
+            player.shoot_cooldown = max(1, int(player.shoot_cooldown * 0.8))
+
+    def draw_upgrade_menu(self):
+        # Dark overlay behind the menu
+        overlay = pygame.Surface((app.WIDTH, app.HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        self.screen.blit(overlay, (0, 0))
+
+        # Title
+        title_surf = self.font_large.render("Choose an Upgrade!", True, (255, 255, 0))
+        title_rect = title_surf.get_rect(center=(app.WIDTH // 2, app.HEIGHT // 3 - 50))
+        self.screen.blit(title_surf, title_rect)
+
+        # Options
+        for i, upgrade in enumerate(self.upgrade_options):
+            text_str = f"{i+1}. {upgrade['name']} - {upgrade['desc']}"
+            option_surf = self.font_small.render(text_str, True, (255, 255, 255))
+            line_y = app.HEIGHT // 3 + i * 40
+            option_rect = option_surf.get_rect(center=(app.WIDTH // 2, line_y))
+            self.screen.blit(option_surf, option_rect)
+
+    def check_for_level_up(self):
+        xp_needed = self.player.level * self.player.level * 5
+        if self.player.xp >= xp_needed:
+            self.player.level += 1
+            self.in_level_up_menu = True
+            self.upgrade_options = self.pick_random_upgrades(3)  # Pick 3 upgrade choices
+
+            # Pause enemy spawns while choosing upgrades
+            self.enemies_per_spawn += 1
+
+    
