@@ -21,6 +21,7 @@ class Player:
         self.facing_left = False
 
         self.health = 5
+        self.xp = 0
         
         self.bullet_speed = 10
         self.bullet_size = 10
@@ -54,6 +55,14 @@ class Player:
         self.y = max(0, min(self.y, app.HEIGHT))
         self.rect.center = (self.x, self.y)
 
+        self.x += vel_x
+        self.y += vel_y
+
+        # Clamp player position to screen bounds
+        self.x = max(0, min(self.x, app.WIDTH))
+        self.y = max(0, min(self.y, app.HEIGHT))
+        self.rect.center = (self.x, self.y)
+
         # Determine animation state
         if vel_x != 0 or vel_y != 0:
             self.state = "run"
@@ -65,13 +74,13 @@ class Player:
             self.facing_left = True
         elif vel_x > 0:
             self.facing_left = False
-        pass  
 
     def update(self):
         for bullet in self.bullets:
             bullet.update()
-        if bullet.y < 0 or bullet.y > app.HEIGHT or bullet.x < 0 or bullet.x > app.WIDTH:
-            self.bullets.remove(bullet)
+            
+            if bullet.y < 0 or bullet.y > app.HEIGHT or bullet.x < 0 or bullet.x > app.WIDTH:
+                self.bullets.remove(bullet)
 
         self.animation_timer += 1
         if self.animation_timer >= self.animation_speed:
@@ -131,3 +140,6 @@ class Player:
 
     def shoot_toward_enemy(self, enemy):
         self.shoot_toward_position(enemy.x, enemy.y)
+
+    def add_xp(self,amount):
+        self.xp += amount

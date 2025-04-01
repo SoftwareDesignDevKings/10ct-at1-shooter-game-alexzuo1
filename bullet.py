@@ -1,3 +1,4 @@
+# bullet.py
 import app
 
 class Bullet:

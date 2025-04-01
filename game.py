@@ -6,6 +6,7 @@ import os
 import app
 from player import Player
 from enemy import Enemy
+from coin import Coin
 import math
 
 class Game:
@@ -33,6 +34,8 @@ class Game:
         self.enemy_spawn_inverval = 60
         self.enemies_per_spawn = 1
 
+        self.coins = []
+
         self.reset_game()
 
     def reset_game(self):
@@ -40,6 +43,8 @@ class Game:
         self.enemies = []
         self.enemy_spawn_timer = 0
         self.enemies_per_spawn = 1
+        
+        self.coins = []
         self.game_over = False
     
     def create_random_background(self, width, height, floor_tiles):
@@ -96,6 +101,7 @@ class Game:
         
         self.check_player_enemy_collisions()
         self.check_bullet_enemy_collisions()
+        self.check_player_coin_collisions()
 
         if self.player.health <= 0:
             self.game_over = True
@@ -105,19 +111,25 @@ class Game:
     def draw(self):
         self.screen.blit(self.background, (0, 0))
 
+        for coin in self.coins:
+            coin.draw(self.screen)
+
         if not self.game_over:
-            self.player.draw(self.screen) 
+            self.player.draw(self.screen)
 
         for enemy in self.enemies:
             enemy.draw(self.screen)
 
-        hp = max(0, min(self.player.health, 5))
+        hp = max(0, min(self.player.health, 5))  
         health_img = self.assets["health"][hp]
         self.screen.blit(health_img, (10, 10))
 
+        xp_text_surf = self.font_small.render(f"XP: {self.player.xp}", True, (255, 255, 255))
+        self.screen.blit(xp_text_surf, (10, 70))
+
         if self.game_over:
             self.draw_game_over_screen()
-        
+
         pygame.display.flip()
 
     def spawn_enemies(self):
@@ -125,38 +137,38 @@ class Game:
         if self.enemy_spawn_timer >= self.enemy_spawn_inverval:
             self.enemy_spawn_timer = 0
 
-        for _ in range(self.enemies_per_spawn):
-            side = random.choice(["top", "bottom", "left", "right"])
-            if side == "top":
-                x = random.randint(0, app.WIDTH)
-                y = -app.SPAWN_MARGIN
-            elif side == "bottom":
-                x = random.randint(0, app.WIDTH)
-                y = app.HEIGHT + app.SPAWN_MARGIN
-            elif side == "left":
-                x = -app.SPAWN_MARGIN
-                y = random.randint(0, app.HEIGHT)
-            else:
-                x = app.WIDTH + app.SPAWN_MARGIN
-                y = random.randint(0, app.HEIGHT)
+            for _ in range(self.enemies_per_spawn):
+                side = random.choice(["top", "bottom", "left", "right"])
+                if side == "top":
+                    x = random.randint(0, app.WIDTH)
+                    y = -app.SPAWN_MARGIN
+                elif side == "bottom":
+                    x = random.randint(0, app.WIDTH)
+                    y = app.HEIGHT + app.SPAWN_MARGIN
+                elif side == "left":
+                    x = -app.SPAWN_MARGIN
+                    y = random.randint(0, app.HEIGHT)
+                else:
+                    x = app.WIDTH + app.SPAWN_MARGIN
+                    y = random.randint(0, app.HEIGHT)
 
-            enemy_type = random.choice(list(self.assets["enemies"].keys()))
-            enemy = Enemy(x, y, enemy_type, self.assets["enemies"])
-            self.enemies.append(enemy)
+                enemy_type = random.choice(list(self.assets["enemies"].keys()))
+                enemy = Enemy(x, y, enemy_type, self.assets["enemies"])
+                self.enemies.append(enemy)
 
-    def check_bullet_enemy_collisions(self):
+    def check_player_enemy_collisions(self):
         collided = False
         for enemy in self.enemies:
             if enemy.rect.colliderect(self.player.rect):
                 collided = True
                 break
-        
+
         if collided:
             self.player.take_damage(1)
             px, py = self.player.x, self.player.y
             for enemy in self.enemies:
                 enemy.set_knockback(px, py, app.PUSHBACK_DISTANCE)
-    
+
     def draw_game_over_screen(self):
         # Dark overlay
         overlay = pygame.Surface((app.WIDTH, app.HEIGHT), pygame.SRCALPHA)
@@ -176,7 +188,7 @@ class Game:
     def find_nearest_enemy(self):
         if not self.enemies:
             return None
-        nearest = None 
+        nearest = None
         min_dist = float('inf')
         px, py = self.player.x, self.player.y
         for enemy in self.enemies:
@@ -191,4 +203,17 @@ class Game:
             for enemy in self.enemies:
                 if bullet.rect.colliderect(enemy.rect):
                     self.player.bullets.remove(bullet)
+                    new_coin = Coin(enemy.x, enemy.y)
+                    self.coins.append(new_coin)
                     self.enemies.remove(enemy)
+    
+    def check_player_coin_collisions(self):
+        coins_collected = []
+        for coin in self.coins:
+            if coin.rect.colliderect(self.player.rect):
+                coins_collected.append(coin)
+                self.player.add_xp(1)
+
+        for c in coins_collected:
+            if c in self.coins:
+                self.coins.remove(c)
