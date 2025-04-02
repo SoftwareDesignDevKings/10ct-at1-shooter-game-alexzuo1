@@ -1,4 +1,3 @@
-# app.py
 import pygame
 import os
 
@@ -6,8 +5,8 @@ import os
 #                               CONSTANTS
 # --------------------------------------------------------------------------
 
-WIDTH = 800
-HEIGHT = 600
+WIDTH = 1200
+HEIGHT = 700
 FPS = 60
 
 PLAYER_SPEED = 3
@@ -60,9 +59,10 @@ def load_assets():
 
     # Enemies
     assets["enemies"] = {
-        "orc":    load_frames("orc",    4, scale_factor=ENEMY_SCALE_FACTOR),
-        "undead": load_frames("undead", 4, scale_factor=ENEMY_SCALE_FACTOR),
-        "demon":  load_frames("demon",  4, scale_factor=ENEMY_SCALE_FACTOR),
+        "enemyregular": load_frames("enemyregular", 3, scale_factor=ENEMY_SCALE_FACTOR),  # Regular enemies
+        "flyingEnemy":  load_frames("flyingEnemy",  3, scale_factor=ENEMY_SCALE_FACTOR),  # Flying enemies
+        "armoredEnemy": load_frames("armoredEnemy", 3, scale_factor=ENEMY_SCALE_FACTOR),  # Armored enemies
+        "bossEnemy":    load_frames("bossEnemy",    3, scale_factor=ENEMY_SCALE_FACTOR),  # Boss enemies
     }
 
     # Player
@@ -76,8 +76,5 @@ def load_assets():
 
     # Health images
     assets["health"] = load_frames("health", 6, scale_factor=HEALTH_SCALE_FACTOR)
-
-    # Example coin image (uncomment if you have coin frames / images)
-    # assets["coin"] = pygame.image.load(os.path.join("assets", "coin.png")).convert_alpha()
 
     return assets
