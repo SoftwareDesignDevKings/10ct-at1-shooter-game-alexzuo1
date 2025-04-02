@@ -1,13 +1,11 @@
-# game.py
 import pygame
 import random
 import os
-
+import math
 import app
 from player import Player
 from enemy import Enemy, FlyingEnemy, ArmoredEnemy, BossEnemy
 from coin import Coin
-import math
 
 class Game:
     def __init__(self):
@@ -16,7 +14,29 @@ class Game:
         pygame.display.set_caption("meow")
         self.clock = pygame.time.Clock()
 
+        self.enemy_asset_map = {
+            Enemy: "regular",
+            FlyingEnemy: "flying",
+            ArmoredEnemy: "armored",
+            BossEnemy: "boss"
+        }
+
         self.assets = app.load_assets()
+        self.running = True
+        self.game_over = False
+        self.enemies = []
+        self.coins = []
+        self.enemy_spawn_timer = 0
+        self.enemy_spawn_interval = 60
+        self.enemies_per_spawn = 1
+        self.in_level_up_menu = False
+        self.upgrade_options = []
+        self.enemies_killed = 0
+        self.boss_level = 0
+        self.current_boss = None
+        self.screen_shake = 0
+        self.screen_shake_offset = [0, 0]
+        self.boss_music_playing = False
 
         font_path = os.path.join("assets", "PressStart2P.ttf")
         self.font_small = pygame.font.Font(font_path, 18)
@@ -25,21 +45,7 @@ class Game:
         self.background = self.create_random_background(
             app.WIDTH, app.HEIGHT, self.assets["floor_tiles"]
         )
-
-        self.running = True
-        self.game_over = False
-
-        self.enemies = []
-        self.enemy_spawn_timer = 0
-        self.enemy_spawn_inverval = 60
-        self.enemies_per_spawn = 1
-
-        self.coins = []
-
         self.reset_game()
-
-        self.in_level_up_menu = False
-        self.upgrade_options = []
 
     def check_for_level_up(self):
         # Calculate the XP needed for next level (same formula you use in draw method)
@@ -64,19 +70,42 @@ class Game:
         
         self.coins = []
         self.game_over = False
+
     
+    def spawn_boss(self):
+        """Spawns a scaled boss with dramatic effects"""
+        # Clear existing enemies
+        self.enemies = [e for e in self.enemies if isinstance(e, BossEnemy)]
+        
+        # Calculate boss stats
+        boss_scale = 1.0 + (self.boss_level * 0.5)
+        health = 10 + (self.boss_level * 5)
+        speed = max(1.0, 2.0 - (self.boss_level * 0.1))
+
+        # Spawn position (top center)
+        x, y = app.WIDTH // 2, -200
+        boss = BossEnemy(
+            self, x, y, "boss", self.assets["enemies"],
+            health=health,
+            speed=speed,
+            scale=boss_scale
+        )
+        self.enemies.append(boss)
+        self.current_boss = boss
+        self.screen_shake = 30  # Screen shake effect
+
     def create_random_background(self, width, height, floor_tiles):
         bg = pygame.Surface((width,height))
         tile_w = floor_tiles[0].get_width()
         tile_h = floor_tiles[0].get_height()
 
         for y in range(0, height, tile_h):
-                for x in range(0, width, tile_w):
-                    tile = random.choice(floor_tiles)
-                    bg.blit(tile, (x, y))
+            for x in range(0, width, tile_w):
+                tile = random.choice(floor_tiles)
+                bg.blit(tile, (x, y))
         
         return bg
-    
+        
     def run(self):
         while self.running:
             self.clock.tick(app.FPS)
@@ -120,8 +149,19 @@ class Game:
                         self.player.shoot_toward_mouse(event.pos)
 
     def update(self):
+        # Handle screen shake
+        if self.screen_shake > 0:
+            self.screen_shake -= 1
+            self.screen_shake_offset = [
+                random.randint(-5, 5),
+                random.randint(-5, 5)
+            ]
+        else:
+            self.screen_shake_offset = [0, 0]
+
+        # Existing update logic
         self.player.handle_input()
-        self.player.update(self.enemies)  # Pass enemies to player update
+        self.player.update(self.enemies)
 
         for enemy in self.enemies:
             enemy.update(self.player)
@@ -175,69 +215,106 @@ class Game:
             desc_surf = self.font_small.render(upgrade["desc"], True, (200, 200, 200))
             desc_rect = desc_surf.get_rect(midleft=(app.WIDTH // 2 + 100, y_start + i * 50))
             self.screen.blit(desc_surf, desc_rect)
+    
+    def draw_boss_healthbar(self):
+        """Draws dramatic boss health bar"""
+        if not self.current_boss or self.current_boss not in self.enemies:
+            return
+
+        boss = self.current_boss
+        bar_width, bar_height = 600, 30
+        border_thickness = 4
+        bar_x = (app.WIDTH - bar_width) // 2
+        bar_y = 20
+
+        # Background
+        pygame.draw.rect(
+            self.screen, (50, 50, 50),
+            (bar_x - border_thickness,
+             bar_y - border_thickness,
+             bar_width + 2*border_thickness,
+             bar_height + 2*border_thickness)
+        )
+
+        # Health fill
+        health_pct = boss.health / boss.max_health
+        health_width = max(0, bar_width * health_pct)
+        
+        # Color changes based on health
+        if health_pct < 0.25:
+            health_color = (255, 40, 40)  # Red when low
+        else:
+            health_color = (255, 0, 0)   # Normal red
+
+        pygame.draw.rect(
+            self.screen, health_color,
+            (bar_x, bar_y, health_width, bar_height)
+        )
+
+        # Pulsing effect when low health
+        if health_pct < 0.25:
+            pulse = int(10 * abs(math.sin(pygame.time.get_ticks() / 200)))
+            pygame.draw.rect(
+                self.screen, (255, 255, 255),
+                (bar_x, bar_y, health_width, bar_height),
+                pulse//2
+            )
+
+        # Boss level text
+        boss_text = self.font_large.render(
+            f"BOSS LEVEL {self.boss_level}",
+            True, (255, 215, 0))  # Gold color
+        self.screen.blit(
+            boss_text,
+            (app.WIDTH//2 - boss_text.get_width()//2, bar_y - 40)
+        )
 
     def draw(self):
-        self.screen.blit(self.background, (0, 0))
+        # Apply screen shake offset
+        shake_x, shake_y = self.screen_shake_offset
+        self.screen.blit(self.background, (shake_x, shake_y))
 
+        # Draw game elements with offset
         for coin in self.coins:
-            coin.draw(self.screen)
+            coin.draw(self.screen, shake_x, shake_y)
 
         if not self.game_over:
-            self.player.draw(self.screen)
+            self.player.draw(self.screen, shake_x, shake_y)
 
         for enemy in self.enemies:
-            enemy.draw(self.screen)
+            enemy.draw(self.screen, shake_x, shake_y)
 
-        hp = max(0, min(self.player.health, 5))  
-        health_img = self.assets["health"][hp]
-        self.screen.blit(health_img, (10, 10))
-
-        xp_text_surf = self.font_small.render(f"XP: {self.player.xp}", True, (255, 255, 255))
-        self.screen.blit(xp_text_surf, (10, 70))
-
-        next_level_xp = self.player.level * self.player.level * 5
-        xp_to_next = max(0, next_level_xp - self.player.xp)
-        xp_next_surf = self.font_small.render(f"Next Lvl XP: {xp_to_next}", True, (255, 255, 255))
-        self.screen.blit(xp_next_surf, (10, 100))
+        # Draw UI elements (not affected by shake)
+        self.draw_ui()
+        self.draw_boss_healthbar()
 
         if self.game_over:
             self.draw_game_over_screen()
 
         if self.in_level_up_menu:
-            self.draw_upgrade_menu()  # Make sure it gets drawn
+            self.draw_upgrade_menu()
 
         pygame.display.flip()
+
     
     def spawn_enemies(self):
         self.enemy_spawn_timer += 1
-        if self.enemy_spawn_timer >= self.enemy_spawn_inverval:
+        if self.enemy_spawn_timer >= self.enemy_spawn_interval:
             self.enemy_spawn_timer = 0
 
-            # Enemy type probabilities
             enemy_types = [
-                (Enemy, 0.5),           # 50% regular
-                (FlyingEnemy, 0.3),     # 30% flying
-                (ArmoredEnemy, 0.15),   # 15% armored
-                (BossEnemy, 0.05)       # 5% boss
+                (Enemy, 0.6, "regular"),
+                (FlyingEnemy, 0.25, "flying"),
+                (ArmoredEnemy, 0.1, "armored"), 
+                (BossEnemy, 0.05, "boss")
             ]
             
-            # Select a random enemy type based on the probabilities
-            enemy_type, _ = random.choices([et[0] for et in enemy_types], [et[1] for et in enemy_types])[0]
-            
-            # Asset selection logic based on enemy type
-            if enemy_type == Enemy:
-                enemy_assets = ["enemyregular_0", "enemyregular_1", "enemyregular_2", "enemyregular_3"]
-            elif enemy_type == FlyingEnemy:
-                enemy_assets = ["flyingEnemy_0", "flyingEnemy_1", "flyingEnemy_2", "flyingEnemy_3"]
-            elif enemy_type == ArmoredEnemy:
-                enemy_assets = ["armoredEnemy_0", "armoredEnemy_1", "armoredEnemy_2","armoredEnemy_3"]
-            elif enemy_type == BossEnemy:
-                enemy_assets = ["bossEnemy_0", "bossEnemy_1", "bossEnemy_2", "bossEnemy_3"]
+            # Fixed selection - gets the whole tuple-similar to list,set,dictonary first
+            enemy_class, prob, asset_key = random.choices(
+                enemy_types,
+                weights=[et[1] for et in enemy_types]
+            )[0]
 
-            # Choose a random asset from the appropriate list
-            enemy_asset = random.choice(enemy_assets)
-
-            # Select spawn position
             side = random.choice(["top", "bottom", "left", "right"])
             if side == "top":
                 x = random.randint(0, app.WIDTH)
@@ -252,30 +329,8 @@ class Game:
                 x = app.WIDTH + app.SPAWN_MARGIN
                 y = random.randint(0, app.HEIGHT)
 
-            # Load the selected enemy sprite from the assets folder
-            enemy_sprites = self.assets["enemies"][enemy_asset]
-
-            # Create the enemy instance
-            enemy = enemy_type(self, x, y, enemy_type, enemy_sprites)
-
-            # Append to the list of enemies
+            enemy = enemy_class(self, x, y, asset_key, self.assets["enemies"])
             self.enemies.append(enemy)
-
-
-
-
-    def check_player_enemy_collisions(self):
-        collided = False
-        for enemy in self.enemies:
-            if enemy.rect.colliderect(self.player.rect):
-                collided = True
-                break
-
-        if collided:
-            self.player.take_damage(1)
-            px, py = self.player.x, self.player.y
-            for enemy in self.enemies:
-                enemy.set_knockback(px, py, app.PUSHBACK_DISTANCE)
 
     def draw_game_over_screen(self):
         # Dark overlay
@@ -313,18 +368,34 @@ class Game:
                     if bullet in self.player.bullets:
                         self.player.bullets.remove(bullet)
                     
-                    # Check if this is an explosive bullet
                     if hasattr(bullet, 'explode') and not bullet.exploded:
-                        bullet.explode(self)  # Pass game instance
+                        bullet.explode(self)
                     
-                    # Handle enemy damage/death
                     if hasattr(enemy, 'take_damage'):
-                        is_dead = enemy.take_damage(1)
-                        if is_dead:
-                            new_coin = Coin(enemy.x, enemy.y)
-                            self.coins.append(new_coin)
-                            self.enemies.remove(enemy)
-                    break  # Break after hitting one enemy
+                        enemy_killed = enemy.take_damage(1)
+                        if enemy_killed:
+                            self.enemies_killed += 1
+                            coins_to_spawn = 1
+                            
+                            if isinstance(enemy, BossEnemy):
+                                coins_to_spawn = 10 + self.boss_level * 5
+                                self.current_boss = None
+                            
+                            # Spawn coins
+                            for _ in range(coins_to_spawn):
+                                self.coins.append(Coin(enemy.x, enemy.y))
+                            
+                            # Spawn boss every 10 kills
+                            if self.enemies_killed % 10 == 0:
+                                self.boss_level = self.enemies_killed // 10
+                                self.spawn_boss()
+                    break
+    
+    def check_player_enemy_collisions(self):
+        for enemy in self.enemies[:]:
+            if self.player.rect.colliderect(enemy.rect):
+                self.player.take_damage(1)
+                enemy.set_knockback(self.player.x, self.player.y, app.PUSHBACK_DISTANCE)
     
     def check_player_coin_collisions(self):
         coins_collected = []
@@ -360,3 +431,18 @@ class Game:
         elif name == "Health Boost":
             player.max_health += 2
             player.health += 2
+
+    def draw_ui(self):
+        """Draw the player's health, level, and score information."""
+        # Draw player health
+        health_text = self.font_small.render(f"Health: {self.player.health}/{self.player.max_health}", True, (255, 255, 255))
+        self.screen.blit(health_text, (20, 20))
+        
+        # Draw player level and XP
+        next_level_xp = self.player.level * self.player.level * 5
+        xp_text = self.font_small.render(f"Level: {self.player.level} (XP: {self.player.xp}/{next_level_xp})", True, (255, 255, 255))
+        self.screen.blit(xp_text, (20, 50))
+        
+        # Draw enemies killed count
+        kills_text = self.font_small.render(f"Kills: {self.enemies_killed}", True, (255, 255, 255))
+        self.screen.blit(kills_text, (20, 80))

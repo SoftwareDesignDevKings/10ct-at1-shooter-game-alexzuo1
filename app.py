@@ -14,7 +14,7 @@ DEFAULT_ENEMY_SPEED = 1
 
 SPAWN_MARGIN = 50
 
-ENEMY_SCALE_FACTOR = 2
+ENEMY_SCALE_FACTOR = 3
 PLAYER_SCALE_FACTOR = 2
 FLOOR_TILE_SCALE_FACTOR = 2
 HEALTH_SCALE_FACTOR = 3
@@ -55,26 +55,21 @@ def load_floor_tiles(folder="assets"):
     return floor_tiles
 
 def load_assets():
-    assets = {}
-
-    # Enemies
-    assets["enemies"] = {
-        "enemyregular": load_frames("enemyregular", 3, scale_factor=ENEMY_SCALE_FACTOR),  # Regular enemies
-        "flyingEnemy":  load_frames("flyingEnemy",  3, scale_factor=ENEMY_SCALE_FACTOR),  # Flying enemies
-        "armoredEnemy": load_frames("armoredEnemy", 3, scale_factor=ENEMY_SCALE_FACTOR),  # Armored enemies
-        "bossEnemy":    load_frames("bossEnemy",    3, scale_factor=ENEMY_SCALE_FACTOR),  # Boss enemies
+    assets = {
+        "enemies": {
+            "regular": load_frames("enemy_regular", 4),  # enemy_regular_0.png, etc.
+            "flying": load_frames("flying_Enemy", 4),    # flying_Enemy_0.png
+            "armored": load_frames("armored_Enemy", 4),  # armored_Enemy_0.png
+            "boss": load_frames("boss_Enemy", 4)         # boss_Enemy_0.png
+        },
+        # Player
+        "player": {
+            "idle": load_frames("player_idle", 4, scale_factor=PLAYER_SCALE_FACTOR),
+            "run": load_frames("player_run", 4, scale_factor=PLAYER_SCALE_FACTOR),
+        },
+        # Floor tiles
+        "floor_tiles": load_floor_tiles(),
+        # Health images
+        "health": load_frames("health", 6, scale_factor=HEALTH_SCALE_FACTOR)
     }
-
-    # Player
-    assets["player"] = {
-        "idle": load_frames("player_idle", 4, scale_factor=PLAYER_SCALE_FACTOR),
-        "run":  load_frames("player_run",  4, scale_factor=PLAYER_SCALE_FACTOR),
-    }
-
-    # Floor tiles
-    assets["floor_tiles"] = load_floor_tiles()
-
-    # Health images
-    assets["health"] = load_frames("health", 6, scale_factor=HEALTH_SCALE_FACTOR)
-
     return assets

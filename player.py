@@ -98,16 +98,23 @@ class Player:
         if self.shoot_timer < self.shoot_cooldown:
             self.shoot_timer += 1
 
-    def draw(self, surface):
+    def draw(self, surface, offset_x=0, offset_y=0):
+    #"""Draw the player character with optional screen shake offset
+    #Args:
+     #   surface: The pygame surface to draw on
+      ## offset_y: Y offset for screen shake effects
+    #"""
+    # Draw player with correct facing direction
         if self.facing_left:
             flipped_image = pygame.transform.flip(self.image, True, False)
-            surface.blit(flipped_image, self.rect)
+            surface.blit(flipped_image, (self.rect.x + offset_x, self.rect.y + offset_y))
         else:
-            surface.blit(self.image, self.rect)
-
+            surface.blit(self.image, (self.rect.x + offset_x, self.rect.y + offset_y))
+        
+        # Draw all bullets
         for bullet in self.bullets:
-            bullet.draw(surface)
-    
+            bullet.draw(surface, offset_x, offset_y)
+        
     def take_damage(self, amount):
         self.health = max(0, self.health - amount)
        
